@@ -22,4 +22,10 @@ class BookGenerator:
                 BookGenerator.__counter = book.uid
         return book
     
-
+    def get_book(self) -> Book:
+        return self.book
+    
+    @classmethod
+    def reset_counter(cls) -> None:
+        cls.__counter = 0
+    
