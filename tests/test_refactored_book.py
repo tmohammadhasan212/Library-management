@@ -1,5 +1,6 @@
 import pytest
 from library_system.book_refactored import Book, BookGenerator
+from pydantic import ValidationError
 
 class TestBook:
     def setup_method(self):
@@ -36,3 +37,20 @@ class TestBook:
         # Check lowercasing
         assert generated_books[0].title == "book one"
         assert generated_books[1].author == "author b"
+
+    def test_generate_many_with_existing_uid(self):
+        books = [
+            Book(title="Book A", author="Author X", uid=2),
+            Book(title="Book B", author="Author Y")
+        ]
+        generated_books = BookGenerator.generate_many(books)
+        assert generated_books[0].uid == 2
+        assert generated_books[1].uid == 3
+
+    # Edge cases for title and author min length
+    def test_title_and_author_min_length(self):
+        with pytest.raises(ValidationError):
+            Book(title="Hi", author="Author Name")  # title too short
+
+        with pytest.raises(ValidationError):
+            Book(title="Valid Title", author="AB")  # author too short
