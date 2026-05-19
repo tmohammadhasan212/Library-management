@@ -54,3 +54,21 @@ class TestBook:
 
         with pytest.raises(ValidationError):
             Book(title="Valid Title", author="AB")  # author too short
+
+    # Edge cases for status
+    def test_invalid_status(self):
+        with pytest.raises(ValidationError):
+            Book(title="Valid Title", author="Author", status="lost")  # invalid status
+
+    # Edge cases for UID
+    def test_invalid_uid(self):
+        with pytest.raises(ValidationError):
+            Book(title="Valid Title", author="Author", uid=0)  # PositiveInt rejects 0
+        with pytest.raises(ValidationError):
+            Book(title="Valid Title", author="Author", uid=-1)  # Negative UID
+
+    # Test that lowercasing happens for all string fields
+    def test_lowercase_strings(self):
+        book = Book(title="UPPERCASE", author="MIXEDcase")
+        assert book.title == "uppercase"
+        assert book.author == "mixedcase"
