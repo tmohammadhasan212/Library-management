@@ -28,4 +28,18 @@ class BookGenerator:
     @classmethod
     def reset_counter(cls) -> None:
         cls.__counter = 0
+
+    @classmethod
+    def generate_many(cls, list_of_books : list[Book]) -> list[Book]:
+        result = []
+        for book in list_of_books:
+            if book.uid is None:
+                cls.__counter += 1
+                book.uid = cls.__counter
+            else:
+                if book.uid > cls.__counter:
+                    cls.__counter = book.uid
+            result.append(book)
+        return result
+
     
