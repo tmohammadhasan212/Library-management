@@ -1,5 +1,6 @@
 import pytest
-from library_system.book_refactored import Book, BookGenerator
+from library_system.book_refactored import BookGenerator
+from models.book import Book
 from pydantic import ValidationError
 
 class TestBook:

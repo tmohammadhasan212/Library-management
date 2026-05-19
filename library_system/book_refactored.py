@@ -1,14 +1,5 @@
-from pydantic import BaseModel, Field, model_validator, PositiveInt, ConfigDict
-from typing import Annotated, Literal
+from models.book import Book
 
-class Book(BaseModel):
-    model_config = ConfigDict(validate_assignment=True, str_to_lower=True, str_strip_whitespace=True)
-    title : Annotated[str, Field(min_length=3)]
-    uid : PositiveInt | None = None
-    author : Annotated[str, Field(min_length=3)]
-    status : Literal['available', 'borrowed'] = 'available'
-
-    
 class BookGenerator:
     __counter = 0
     def __init__(self, book: Book) -> None:
