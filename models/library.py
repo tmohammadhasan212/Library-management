@@ -19,5 +19,16 @@ class Library(BaseModel):
                 seen.add(uid)
                 uniques.append(row)
         return uniques
+    
+    def add_book(self, book: Book) -> None:
+        if not isinstance(book, Book):
+            raise TypeError(f'Excpected Book object. got {type(book).__name__}')
+        if book in self.inventory:
+            raise PydanticCustomError(
+                'book_already_exists',
+                'The book {book_name} already exists in the inventory',
+                {'book_name':book.title}
+            )
+        self.inventory.append(book)
 
 
