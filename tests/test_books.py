@@ -1,31 +1,18 @@
 import pytest
 from pydantic import ValidationError
 from models.book import Book
-
+from uuid import UUID, uuid4
 
 class TestBook:
-    def setup_method(self):
-        Book.reset_counter()
-
+    
     def test_create_valid_book_with_auto_uid(self):
         book = Book(title="The Hobbit", author="J.R.R. Tolkien")
 
-        assert book.uid == 1
+        assert type(book.uid) == UUID
         assert book.title == "the hobbit"
         assert book.author == "j.r.r. tolkien"
         assert book.status == "available"
 
-    def test_create_valid_book_with_manual_uid(self):
-        book = Book(uid=10, title="1984", author="George Orwell")
-
-        assert book.uid == 10
-        assert Book.counter == 10
-
-    def test_auto_uid_continues_after_manual_uid(self):
-        Book(uid=5, title="1984", author="George Orwell")
-        book = Book(title="Dune", author="Frank Herbert")
-
-        assert book.uid == 6
 
     def test_status_can_be_borrowed(self):
         book = Book(title="Dune", author="Frank Herbert", status="borrowed")
@@ -44,9 +31,6 @@ class TestBook:
         with pytest.raises(ValidationError):
             Book(title="1984", author="ab")
 
-    def test_uid_must_be_positive(self):
-        with pytest.raises(ValidationError):
-            Book(uid=0, title="1984", author="George Orwell")
 
     def test_strings_are_stripped_and_lowercased(self):
         book = Book(title="  The Hobbit  ", author="  J.R.R. Tolkien  ")
@@ -65,29 +49,6 @@ class TestBook:
 
         with pytest.raises(ValidationError):
             book.title = "ab"
-
-    def test_multiple_books_get_incrementing_uids(self):
-        book1 = Book(title="1984", author="George Orwell")
-        book2 = Book(title="Dune", author="Frank Herbert")
-
-        assert book1.uid == 1
-        assert book2.uid == 2
-    
-    def test_manual_uid_lower_than_counter_does_not_reset_counter(self):
-        Book(title="1984", author="George Orwell")  # uid = 1
-        Book(uid=10, title="Dune", author="Frank Herbert")
-
-        book = Book(uid=5, title="The Hobbit", author="J.R.R. Tolkien")
-        next_book = Book(title="Foundation", author="Isaac Asimov")
-
-        assert book.uid == 5
-        assert next_book.uid == 11
-
-
-    def test_uid_cannot_be_negative(self):
-        with pytest.raises(ValidationError):
-            Book(uid=-1, title="1984", author="George Orwell")
-
 
     def test_missing_title_raises_validation_error(self):
         with pytest.raises(ValidationError):
