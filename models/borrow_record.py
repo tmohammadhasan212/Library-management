@@ -12,8 +12,8 @@ class BorrowRecord(BaseModel):
     )
     uid: UUID = Field(default_factory=uuid4)
     borrower_name: str
-    author: str
-    status: Literal['borrowed', 'available'] = 'borrowed'
+    title: str
+    status: Literal['borrowed', 'returned'] = 'borrowed'
     borrow_time: float
     return_time: float | None = None
 
