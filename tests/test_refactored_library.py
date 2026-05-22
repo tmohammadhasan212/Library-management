@@ -221,7 +221,40 @@ class TestLibray:
 
         with pytest.raises(StateError, match="Borrowed book was not found in inventory"):
             library.return_book(record_id=1)
+    
+    def test_view_borrowed_history(self, library: Library, capsys):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+        library.borrow_book(borrower_name="Ali", book_id=3)
+        library.return_book(record_id=1)
 
+        library.view_borrowed_history()
+
+        captured = capsys.readouterr()
+
+        assert "Borrowed History" in captured.out
+        assert "Book UID" in captured.out
+        assert "Book Title" in captured.out
+        assert "Borrower Name" in captured.out
+        assert "Borrowed Time" in captured.out
+        assert "Returned Time" in captured.out
+        assert "Status" in captured.out
+
+        assert "the hobbit" in captured.out
+        assert "to kill a mockingbird" in captured.out
+        assert "hasan" in captured.out
+        assert "ali" in captured.out
+
+        assert "returned" in captured.out
+        assert "borrowed" in captured.out
+
+        assert "Total records: 2" in captured.out
+        assert "Total borrowed books: 1" in captured.out
+        assert "Total returned books: 1" in captured.out
+
+
+    def test_view_borrowed_history_empty_records_raises_error(self, library: Library):
+        with pytest.raises(EmptyError, match="Borrow history is empty"):
+            library.view_borrowed_history()
         
 
 

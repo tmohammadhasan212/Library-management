@@ -4,6 +4,7 @@ from .borrow_record import BorrowRecord
 from pydantic_core import PydanticCustomError
 import time
 from library_system.exceptions import EmptyError, StateError
+from datetime import datetime
 
 class Library(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
@@ -113,6 +114,65 @@ class Library(BaseModel):
                 book.status = 'available'
                 return True
         raise StateError("Borrowed book was not found in inventory.")
+    
+    def view_borrowed_history(self) -> None:
+        if not self.borrow_records:
+            raise EmptyError("Borrow history is empty.")
+
+        print("\nBorrowed History")
+        print("=" * 120)
+        print(
+            f"{'ID':<5} "
+            f"{'Book UID':<12} "
+            f"{'Book Title':<30} "
+            f"{'Borrower Name':<25} "
+            f"{'Borrowed Time':<22} "
+            f"{'Returned Time':<22} "
+            f"{'Status':<10}"
+        )
+        print("=" * 120)
+
+        total_returned = 0
+        total_borrowed = 0
+
+        for index, record in enumerate(self.borrow_records, start=1):
+            short_book_uid = f"{str(record.book_uid)[:6]}..."
+            title = record.title[:27] + "..." if len(record.title) > 30 else record.title
+            borrower_name = (
+                record.borrower_name[:22] + "..."
+                if len(record.borrower_name) > 25
+                else record.borrower_name
+            )
+
+            formatted_borrow_time = datetime.fromtimestamp(
+                record.borrow_time
+            ).strftime("%Y/%m/%d %H:%M:%S")
+
+            formatted_return_time = (
+                datetime.fromtimestamp(record.return_time).strftime("%Y/%m/%d %H:%M:%S")
+                if record.return_time
+                else "-"
+            )
+
+            if record.status == "returned":
+                total_returned += 1
+            else:
+                total_borrowed += 1
+
+            print(
+                f"{index:<5} "
+                f"{short_book_uid:<12} "
+                f"{title:<30} "
+                f"{borrower_name:<25} "
+                f"{formatted_borrow_time:<22} "
+                f"{formatted_return_time:<22} "
+                f"{record.status:<10}"
+            )
+
+        print("=" * 120)
+        print(f"Total records: {len(self.borrow_records)}")
+        print(f"Total borrowed books: {total_borrowed}")
+        print(f"Total returned books: {total_returned}")
 
 
 
