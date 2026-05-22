@@ -67,6 +67,7 @@ class Library(BaseModel):
             raise ValueError(f'The book with id {book_id} is already borrowed.')
 
         borrow_record = BorrowRecord(
+            book_uid= book.uid,
             borrower_name=borrower_name,
             title=book.title,
             borrow_time=time.time()
@@ -92,6 +93,28 @@ class Library(BaseModel):
             self.view_books(books=borrowed_books)
         else:
             raise StateError('All books are available.')
+        
+    def return_book(self, record_id: int):
+        if type(record_id) is not int:
+            raise ValueError(f'id must be int. got {type(record_id).__name__}')
+
+        if record_id < 1 or record_id > len(self.borrow_records):
+            raise ValueError('invalid id. make sure it is in range.')
+        
+        looking_record = self.borrow_records[record_id - 1]
+        if looking_record.status == 'returned':
+            raise StateError(f"The Book with id {record_id} is already returned.")
+        looking_record.status = 'returned'
+        looking_record.return_time = time.time()
+
+        # The status of the book in the inventory must be changed to "available"
+        for book in self.inventory:
+            if book.uid == looking_record.book_uid and book.status == 'borrowed':
+                book.status = 'available'
+                return True
+        raise StateError("Borrowed book was not found in inventory.")
+
+
 
 
 

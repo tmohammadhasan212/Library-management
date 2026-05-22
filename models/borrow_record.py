@@ -11,6 +11,7 @@ class BorrowRecord(BaseModel):
         str_max_length= 30
     )
     uid: UUID = Field(default_factory=uuid4)
+    book_uid : UUID = Field(default_factory=uuid4)
     borrower_name: str
     title: str
     status: Literal['borrowed', 'returned'] = 'borrowed'

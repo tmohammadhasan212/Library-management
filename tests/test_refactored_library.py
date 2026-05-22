@@ -170,6 +170,58 @@ class TestLibray:
         with pytest.raises(StateError, match="All books are available"):
             library.view_borrowed_books()
 
+    def test_return_book_successfully(self, library: Library):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+
+        result = library.return_book(record_id=1)
+
+        assert result is True
+        assert library.borrow_records[0].status == "returned"
+        assert library.borrow_records[0].return_time is not None
+        assert library.inventory[0].status == "available"
+
+
+    def test_return_book_with_non_int_record_id_raises_error(self, library: Library):
+        with pytest.raises(ValueError, match="id must be int"):
+                library.return_book(record_id="1")
+
+
+    def test_return_book_with_bool_record_id_raises_error(self, library: Library):
+        with pytest.raises(ValueError, match="id must be int"):
+            library.return_book(record_id=True)
+
+
+    def test_return_book_with_zero_record_id_raises_error(self, library: Library):
+        with pytest.raises(ValueError, match="invalid id"):
+            library.return_book(record_id=0)
+
+
+    def test_return_book_with_negative_record_id_raises_error(self, library: Library):
+        with pytest.raises(ValueError, match="invalid id"):
+            library.return_book(record_id=-1)
+
+
+    def test_return_book_with_out_of_range_record_id_raises_error(self, library: Library):
+        with pytest.raises(ValueError, match="invalid id"):
+            library.return_book(record_id=99)
+
+
+    def test_return_already_returned_book_raises_error(self, library: Library):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+        library.return_book(record_id=1)
+
+        with pytest.raises(StateError, match="already returned"):
+            library.return_book(record_id=1)
+
+
+    def test_return_book_when_book_missing_from_inventory_raises_error(self, library: Library):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+
+        borrowed_book = library.inventory.pop(0)
+
+        with pytest.raises(StateError, match="Borrowed book was not found in inventory"):
+            library.return_book(record_id=1)
+
         
 
 
