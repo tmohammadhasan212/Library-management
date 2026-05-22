@@ -3,6 +3,7 @@ from models.book import Book
 from models.library import Library
 from pydantic import ValidationError
 from pydantic_core import PydanticCustomError
+from library_system.exceptions import EmptyError
 
 @pytest.fixture()
 def multiple_books() -> list[Book]:
@@ -106,6 +107,25 @@ class TestLibray:
         assert library.inventory[0].status == "borrowed"
         assert library.inventory[1].status == "borrowed"
         assert library.inventory[2].status == "available"
+
+    def test_view_books(self, multiple_books: list[Book], capsys):
+        Library.view_books(multiple_books)
+
+        captured = capsys.readouterr()  
+        assert "ID" in captured.out
+        assert "Title" in captured.out
+        assert "Author" in captured.out
+        assert "Status" in captured.out
+
+        assert "the hobbit" in captured.out
+        assert "j.r.r. tolkien" in captured.out
+        assert "1984" in captured.out
+        assert "george orwell" in captured.out
+        assert "Total books: 3" in captured.out
+
+    def test_view_books_empty_list_raises_error(self):
+        with pytest.raises(EmptyError, match="Book list is empty"):
+            Library.view_books([])
 
 
         
