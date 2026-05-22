@@ -4,6 +4,7 @@ from models.library import Library
 from pydantic import ValidationError
 from pydantic_core import PydanticCustomError
 from library_system.exceptions import EmptyError, StateError
+from uuid import uuid4
 
 @pytest.fixture()
 def multiple_books() -> list[Book]:
@@ -255,6 +256,144 @@ class TestLibray:
     def test_view_borrowed_history_empty_records_raises_error(self, library: Library):
         with pytest.raises(EmptyError, match="Borrow history is empty"):
             library.view_borrowed_history()
+
+    def test_find_unmatched_books_with_matching_data_returns_empty_list(
+        self,
+        library: Library,
+        multiple_books: list[Book],
+):
+        result = library.find_unmatched_books(json_data=multiple_books)
+
+        assert result == []
+
+
+    def test_find_unmatched_books_when_book_missing_from_json_returns_library_book(
+        self,
+        library: Library,
+        multiple_books: list[Book],
+):
+        json_data = multiple_books[:-1]
+
+        result = library.find_unmatched_books(json_data=json_data)
+
+        assert len(result) == 1
+        assert result[0] == multiple_books[-1]
+
+
+    def test_find_unmatched_books_when_extra_book_exists_in_json_returns_json_book(
+        self,
+        library: Library,
+        multiple_books: list[Book],
+):
+        extra_book = Book(title="Dune", author="Frank Herbert")
+        json_data = multiple_books + [extra_book]
+
+        result = library.find_unmatched_books(json_data=json_data)
+
+        assert len(result) == 1
+        assert result[0] == extra_book
+
+
+    def test_find_unmatched_books_when_same_uid_but_different_data_returns_library_book(
+        self,
+        library: Library,
+        multiple_books: list[Book],
+):
+        changed_book = multiple_books[0].model_copy(update={"title": "Different Title"})
+        json_data = [changed_book, multiple_books[1], multiple_books[2]]
+
+        result = library.find_unmatched_books(json_data=json_data)
+
+        assert len(result) == 1
+        assert result[0] == multiple_books[0]
+
+
+    def test_find_unmatched_books_with_non_list_raises_type_error(self, library: Library):
+        with pytest.raises(TypeError, match="Argument json_data must be a list type"):
+            library.find_unmatched_books(json_data="not a list")
+
+
+    def test_find_unmatched_books_with_empty_list_raises_empty_error(self, library: Library):
+        with pytest.raises(EmptyError, match="Can not provide an empty list"):
+            library.find_unmatched_books(json_data=[])
+
+    def test_find_unmatched_borrow_records_with_matching_data_returns_empty_list(
+        self,
+        library: Library,
+):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+
+        csv_data = library.borrow_records.copy()
+
+        result = library.find_unmatched_borrow_records(csv_data=csv_data)
+
+        assert result == []
+
+
+    def test_find_unmatched_borrow_records_when_record_missing_from_csv_returns_library_record(
+        self,
+        library: Library,
+):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+        library.borrow_book(borrower_name="Ali", book_id=3)
+
+        csv_data = [library.borrow_records[0]]
+
+        result = library.find_unmatched_borrow_records(csv_data=csv_data)
+
+        assert len(result) == 1
+        assert result[0] == library.borrow_records[1]
+
+
+    def test_find_unmatched_borrow_records_when_extra_record_exists_in_csv_returns_csv_record(
+        self,
+        library: Library,
+):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+
+        extra_record = library.borrow_records[0].model_copy()
+        extra_record.uid = uuid4()
+
+        csv_data = library.borrow_records + [extra_record]
+
+        result = library.find_unmatched_borrow_records(csv_data=csv_data)
+
+        assert len(result) == 1
+        assert result[0] == extra_record
+
+
+    def test_find_unmatched_borrow_records_when_same_uid_but_different_data_returns_library_record(
+        self,
+        library: Library,
+):
+        library.borrow_book(borrower_name="Hasan", book_id=1)
+
+        changed_record = library.borrow_records[0].model_copy(
+            update={"borrower_name": "Different Name"}
+        )
+
+        csv_data = [changed_record]
+
+        result = library.find_unmatched_borrow_records(csv_data=csv_data)
+
+        assert len(result) == 1
+        assert result[0] == library.borrow_records[0]
+
+
+    def test_find_unmatched_borrow_records_with_non_list_raises_type_error(
+        self,
+        library: Library,
+):
+        with pytest.raises(TypeError, match="Argument csv_data must be a list type"):
+            library.find_unmatched_borrow_records(csv_data="not a list")
+
+
+    def test_find_unmatched_borrow_records_with_empty_list_raises_empty_error(
+        self,
+        library: Library,
+):
+        with pytest.raises(EmptyError, match="Can not provide an empty list"):
+            library.find_unmatched_borrow_records(csv_data=[])
         
 
 

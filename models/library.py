@@ -95,7 +95,7 @@ class Library(BaseModel):
         else:
             raise StateError('All books are available.')
         
-    def return_book(self, record_id: int):
+    def return_book(self, record_id: int) -> bool:
         if type(record_id) is not int:
             raise ValueError(f'id must be int. got {type(record_id).__name__}')
 
@@ -173,6 +173,61 @@ class Library(BaseModel):
         print(f"Total records: {len(self.borrow_records)}")
         print(f"Total borrowed books: {total_borrowed}")
         print(f"Total returned books: {total_returned}")
+
+    def find_unmatched_books(self, json_data: list[Book]) -> list[Book | None]:
+        if not isinstance(json_data, list):
+            raise TypeError(f'Argument json_data must be a list type.{type(json_data).__name__} was given')
+        if not json_data:
+            raise EmptyError('Can not provide an empty list.')
+        
+        mismatches = []
+        dict_lib = {book.uid:book for book in self.inventory}
+        dict_json_data = {book.uid:book for book in json_data}
+        all_uids = set(dict_lib.keys()) | set(dict_json_data.keys())
+
+        for uid in all_uids:
+            lib_book = dict_lib.get(uid)
+            json_book = dict_json_data.get(uid)
+
+            if lib_book is None or json_book is None:
+                mismatches.append(lib_book or json_book)
+            elif lib_book != json_book:
+                mismatches.append(lib_book)
+        return mismatches
+    
+    def find_unmatched_borrow_records(self, csv_data: list[BorrowRecord]) -> list[BorrowRecord]:
+        if not isinstance(csv_data, list):
+            raise TypeError(
+                f"Argument csv_data must be a list type. {type(csv_data).__name__} was given"
+            )
+
+        if not csv_data:
+            raise EmptyError("Can not provide an empty list.")
+
+        mismatches: list[BorrowRecord] = []
+
+        dict_lib = {record.uid: record for record in self.borrow_records}
+        dict_csv = {record.uid: record for record in csv_data}
+
+        all_uids = set(dict_lib.keys()) | set(dict_csv.keys())
+
+        for uid in all_uids:
+            library_record = dict_lib.get(uid)
+            csv_record = dict_csv.get(uid)
+
+            if library_record is None and csv_record is not None:
+                mismatches.append(csv_record)
+
+            elif csv_record is None and library_record is not None:
+                mismatches.append(library_record)
+
+            elif library_record is not None and csv_record is not None and library_record != csv_record:
+                mismatches.append(library_record)
+
+        return mismatches
+
+
+
 
 
 
