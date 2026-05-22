@@ -3,7 +3,7 @@ from models.book import Book
 from models.library import Library
 from pydantic import ValidationError
 from pydantic_core import PydanticCustomError
-from library_system.exceptions import EmptyError
+from library_system.exceptions import EmptyError, StateError
 
 @pytest.fixture()
 def multiple_books() -> list[Book]:
@@ -126,7 +126,49 @@ class TestLibray:
     def test_view_books_empty_list_raises_error(self):
         with pytest.raises(EmptyError, match="Book list is empty"):
             Library.view_books([])
+    
+    def test_view_available_books(self, library: Library, capsys):
+        library.view_available_books()
 
+        captured = capsys.readouterr()
+
+        assert "Available Books" in captured.out
+        assert "the hobbit" in captured.out
+        assert "to kill a mockingbird" in captured.out
+        assert "1984" not in captured.out
+        assert "Total books: 2" in captured.out
+
+
+    def test_view_available_books_when_no_available_books_raises_error(self, multiple_books: list[Book]):
+        for book in multiple_books:
+            book.status = "borrowed"
+
+        library = Library(inventory=multiple_books, borrow_records=[])
+
+        with pytest.raises(StateError, match="books are already borrowed"):
+            library.view_available_books()
+
+    def test_view_borrowed_books(self, library: Library, capsys):
+        library.view_borrowed_books()
+
+        captured = capsys.readouterr()
+
+        assert "Borrowed Books" in captured.out
+        assert "1984" in captured.out
+        assert "george orwell" in captured.out
+        assert "the hobbit" not in captured.out
+        assert "to kill a mockingbird" not in captured.out
+        assert "Total books: 1" in captured.out
+
+
+    def test_view_borrowed_books_when_no_borrowed_books_raises_error(self, multiple_books: list[Book]):
+        for book in multiple_books:
+            book.status = "available"
+
+        library = Library(inventory=multiple_books, borrow_records=[])
+
+        with pytest.raises(StateError, match="All books are available"):
+            library.view_borrowed_books()
 
         
 

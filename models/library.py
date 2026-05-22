@@ -3,7 +3,7 @@ from .book import Book
 from .borrow_record import BorrowRecord
 from pydantic_core import PydanticCustomError
 import time
-from library_system.exceptions import EmptyError
+from library_system.exceptions import EmptyError, StateError
 
 class Library(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
@@ -42,7 +42,7 @@ class Library(BaseModel):
             )
 
         print(f"\nTotal books: {len(books)}")
-        
+
     def add_book(self, book: Book) -> None:
         if not isinstance(book, Book):
             raise TypeError(f'Excpected Book object. got {type(book).__name__}')
@@ -74,6 +74,25 @@ class Library(BaseModel):
 
         book.status = 'borrowed'
         self.borrow_records.append(borrow_record)
+
+    def view_available_books(self) -> None:
+        available_books = [book for book in self.inventory if book.status == 'available']
+        print("\nAvailable Books")
+        print("=" * 40)
+        if available_books:
+            self.view_books(books=available_books)
+        else:
+            raise StateError('All books are already borrowed.')
+        
+    def view_borrowed_books(self) -> None:
+        borrowed_books = [book for book in self.inventory if book.status == 'borrowed']
+        print("\nBorrowed Books")
+        print("=" * 40)
+        if borrowed_books:
+            self.view_books(books=borrowed_books)
+        else:
+            raise StateError('All books are available.')
+
 
 
 
