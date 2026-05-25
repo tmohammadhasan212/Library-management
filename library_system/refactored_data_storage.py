@@ -4,6 +4,7 @@ from models.library import Library
 import json
 from models.book import Book
 from models.borrow_record import BorrowRecord
+from uuid import UUID
 
 class DataStorage:
     def __init__(self, dir_path:Path | None = None):
@@ -56,3 +57,35 @@ class DataStorage:
         
         self._write_to_csv(file_path, dict_records)
         return True
+    
+    def _read_csv_file(self, file_path: Path) -> list[dict]:
+        try:
+            headers = ['uid','book_uid','borrower_name', 'title', 'status', 'borrow_time', 'return_time']
+            with open(file_path, encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames
+                if fieldnames is None:
+                    raise ValueError("CSV file has no headers.")
+                if not all(header in fieldnames for header in headers):
+                    raise ValueError(
+                        f'There was a mismatch between csv headers and expected headers.\nExpected: {headers}, got: {reader.fieldnames}')
+                return list(reader)
+        except Exception as e:
+            raise RuntimeError(f'something went wrong during reading process. {e}') from e
+        
+    def _convert_record(self, record: dict) -> dict:
+        return {
+            **record,
+            "return_time": None if record["return_time"] == "" else record["return_time"],
+        }
+        
+    def import_from_csv(self) -> list[BorrowRecord]:
+        file_path = self.dir_path / 'borrow_records.csv'
+        result: list[BorrowRecord] = []
+        if not file_path.is_file():
+            raise FileNotFoundError(f"There is not a csv file at this path: {file_path}")
+        data = self._read_csv_file(file_path)
+        for record in data:
+            result.append(BorrowRecord(**self._convert_record(record)))
+        return result
+    
