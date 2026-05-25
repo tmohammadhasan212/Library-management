@@ -1,52 +1,38 @@
 from pathlib import Path
 import csv
-from .library import Library
+from models.library import Library
 import json
-from .book import Book
-from typing import TypedDict
-from library_system.library import BorrowRecord
-
-class RecordToCSV(TypedDict):
-    name : str
-    book_id : int
-    borrow_time : float
-    return_time : float | str
+from models.book import Book
+from models.borrow_record import BorrowRecord
+from uuid import UUID
+from library_system.exceptions import EmptyError
 
 class DataStorage:
     def __init__(self, dir_path:Path | None = None):
-        self.dir_path = dir_path
+        self.__dir_path = self._prepare_dir_path(dir_path)
 
     @property
     def dir_path(self) -> Path:
         return self.__dir_path
     
     @dir_path.setter
-    def dir_path(self, path:Path):
-        if path is None:
-            self.__dir_path: Path = Path(__file__).parent.parent / 'data'
-        else:
-            self.__dir_path = Path(path)
-        self.__dir_path.mkdir(parents=True, exist_ok=True)
+    def dir_path(self, path:Path | None):
+        self.__dir_path = self._prepare_dir_path(path)
 
-    @property
-    def create_library_storage(self) -> Path:
-        try:
-            library_storage_path = self.dir_path / 'library.csv'
-            library_storage_path.touch(exist_ok=True)
-            return library_storage_path
-        except Exception as e:
-            raise RuntimeError(f"Failed to create library storage: {e}") from e
+
         
-    @property
-    def create_borrows_storage(self) -> Path:
-        try:
-            borrows_storage_path = self.dir_path / 'borrows.csv'
-            borrows_storage_path.touch(exist_ok=True)
-            return borrows_storage_path
-        except Exception as e:
-            raise RuntimeError(f"Failed to create library storage: {e}") from e
-        
-    def _write_to_csv(self, file_path : Path, headers : list[str], data: list[RecordToCSV]):
+    @staticmethod
+    def _prepare_dir_path(dir_path : Path | None) -> Path:
+        resolved_path = (
+            Path(__file__).parent.parent / 'data'
+            if dir_path is None
+            else Path(dir_path).resolve()
+        )
+        resolved_path.mkdir(parents= True, exist_ok= True)
+        return resolved_path
+    
+    def _write_to_csv(self, file_path : Path, data: list[dict]):
+        headers = data[0].keys()
         try:
 
             with open(file_path, mode='w', newline='', encoding='utf-8') as file:
@@ -58,141 +44,89 @@ class DataStorage:
             raise RuntimeError(f'something went wrong with the writing of csv file. {e}')
 
             
-    def export_to_csv(self, data:list[BorrowRecord], file_path : Path):
-        
-        file_path = Path(file_path)
-        headers = ['name', 'book_id', 'borrow_time', 'return_time']
-        final_data : list[RecordToCSV] = []
-        if not data:
-            raise ValueError('Do not provide an empty list for data.')
-        
-        if file_path.suffix != '.csv':
-            raise ValueError(f'The file is not a csv file at this path : {file_path}')
-        
-        for record in data:
-            if not isinstance(record['book'], Book):
-                raise ValueError('the type of the book in the borrow records is not a Book object.')
+    def export_to_csv(self, data:list[BorrowRecord]) -> bool:
 
-            final_data.append({
-                'name':record['name'], 'book_id':record['book'].id, 'borrow_time':record['borrow_time'], 'return_time': record['return_time'] if record['return_time'] is not None else ''})
-            
+        file_path = self.__dir_path / 'borrow_records.csv'
+
+        if not isinstance(data, list):
+            raise TypeError(f"data should be a list. Got a {type(data).__name__}")
+        
+        if not data:
+            raise EmptyError("Can not export an empty borrow records list.")
+        
+        if not all(isinstance(record, BorrowRecord) for record in data):
+            raise TypeError("all items in list must be BorrowRecord objects")
+        
+        dict_records = [record.model_dump(mode='json') for record in data]
+        
+        self._write_to_csv(file_path, dict_records)
+        return True
+    
+    def _read_csv_file(self, file_path: Path) -> list[dict]:
         try:
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            headers = ['uid','book_uid','borrower_name', 'title', 'status', 'borrow_time', 'return_time']
+            with open(file_path, encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames
+                if fieldnames is None:
+                    raise ValueError("CSV file has no headers.")
+                if not all(header in fieldnames for header in headers):
+                    raise ValueError(
+                        f'There was a mismatch between csv headers and expected headers.\nExpected: {headers}, got: {reader.fieldnames}')
+                return list(reader)
         except Exception as e:
-            raise RuntimeError(f'Failed to create directory {file_path.parent}: {e}')
-        
-        self._write_to_csv(file_path, headers, final_data)
-        
-        
-        
-    def _read_csv_file(self, file_path : Path):
-        try:
-            with open(file_path, mode='r', encoding='utf-8') as file:
-                reader = csv.DictReader(file)
-                expected_headers = ['name', 'book_id', 'borrow_time', 'return_time']
-                if not all(header in reader.fieldnames for header in expected_headers):
-                    raise ValueError(f'there is a mismatch between expected headers and csv headers\n{expected_headers} != {reader.fieldnames}')
-                data = list(reader)
-                return data
-            
-        except Exception as e:
-            raise RuntimeError(f'something went wrong with the reading of csv file. {e}')
+            raise RuntimeError(f'something went wrong during reading process. {e}') from e
         
     def _convert_record(self, record: dict) -> dict:
-        converted_record = {'name':record['name'],'book_id':int(record['book_id']),'borrow_time': float(record['borrow_time']),'return_time': float(record['return_time']) if record['return_time'] and record['return_time'] != '' else None}
-
-        return converted_record
-
-    
-    def import_from_csv(self, file_path : Path) -> list:
-        file_path = Path(file_path)
-        final_data = []
-        if not file_path.is_file():
-            raise ValueError(f'There is no file at : {file_path}')
-        if file_path.suffix != '.csv':
-            raise ValueError(f'The file is not a csv file at this path : {file_path}')
+        return {
+            **record,
+            "return_time": None if record["return_time"] == "" else record["return_time"],
+        }
         
+    def import_from_csv(self) -> list[BorrowRecord]:
+        file_path = self.dir_path / 'borrow_records.csv'
+        result: list[BorrowRecord] = []
+        if not file_path.is_file():
+            raise FileNotFoundError(f"There is not a csv file at this path: {file_path}")
         data = self._read_csv_file(file_path)
+        for record in data:
+            result.append(BorrowRecord(**self._convert_record(record)))
+        return result
+    
+    def export_to_json(self, data: list[Book]) -> bool:
+        if not isinstance(data, list):
+            raise TypeError(f"data should be a list. Got a {type(data).__name__}")
         
         if not data:
-            print("Warning: CSV file has headers but no data")
-            return []  # or handle appropriately
+            raise EmptyError("Can not export an empty book list.")
         
-        final_data = [self._convert_record(record) for record in data]
+        if not all(isinstance(book, Book) for book in data):
+            raise TypeError("all items in list must be Book objects")
         
-        print(f'Data has successfully imported from this path: {file_path}')
-        return final_data
-    
-
-        
-    def export_to_json(self, file_path : Path, data : list):
-        file_path = Path(file_path)
-        final_data = []
-        if not data:
-            raise ValueError('Do not provide an empty list for data.')
-        
-        if file_path.suffix.lower() != '.json':
-            raise ValueError(f'The file is not a json file at this path : {file_path}')
-        
-        for one_book in sorted(data, key= lambda book: book.id):
-            final_data.append({
-                'id':one_book.id,
-                'title':one_book.title,
-                'author':one_book.author,
-                'status':one_book.status 
-            })
+        file_path = self.dir_path / 'books_inventory.json'
+        final_data : list[dict] = [book.model_dump(mode='json') for book in data]
 
         try:
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-
+            with open(file_path, mode='w', encoding='utf-8') as f:
+                json.dump(final_data, f, indent=2)
+                return True
         except Exception as e:
-            raise RuntimeError(f'Failed to create directory {file_path.parent}: {e}')
+            raise RuntimeError(f'Something went wrong with json writing. {e}') from e
         
-        try:
-            with open(file_path, mode='w', encoding='utf-8') as file:
-                json.dump(final_data, file, indent=2)
+    def import_from_json(self) -> list[Book]:
+        file_path = self.dir_path / 'books_inventory.json'
 
-            print(f'Data has been successfully exported to: {file_path}')
-
-        except Exception as e:
-            raise RuntimeError(f'something went wrong with writing data into json file.\n{e}')
-        
-    
-    def import_from_json(self, file_path : Path) -> list:
-        file_path = Path(file_path)
         if not file_path.is_file():
-            raise ValueError(f'There is no file at : {file_path}')
-        if file_path.suffix != '.json':
-            raise ValueError(f'The file is not a json file at this path : {file_path}')
+            raise FileNotFoundError(f"There is not a json file at this path: {file_path}")
         
-        with open(file_path, encoding='utf-8') as file:
-            data = json.load(file)
-
-        return Library.convert_to_book_obj(data)
-    
-    
-    
-
-
+        try:
+            with open(file_path, encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"Something went wrong with the json reading process. {e}") from e
         
+        if not isinstance(data, list):
+            raise TypeError("JSON data must be a list of books.")
 
-        
-
-    
-
-
-
-
-
-
-
-    
-    
-    
-
-    
-
-        
-
-
-        
+        final_data : list[Book] = [Book(**book) for book in data]
+        return final_data

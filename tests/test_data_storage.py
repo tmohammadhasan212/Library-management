@@ -2,7 +2,7 @@ import pytest
 from models.library import Library
 from models.book import Book
 from models.borrow_record import BorrowRecord
-from library_system.refactored_data_storage import DataStorage
+from library_system.data_storage import DataStorage
 from pathlib import Path
 from library_system.exceptions import EmptyError
 from pydantic import ValidationError
