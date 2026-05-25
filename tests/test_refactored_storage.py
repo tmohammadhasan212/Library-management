@@ -3,6 +3,7 @@ from models.library import Library
 from models.borrow_record import BorrowRecord
 from library_system.refactored_data_storage import DataStorage
 from pathlib import Path
+from library_system.exceptions import EmptyError
 
 class TestCSVfiles:
     def test_dir_path_creation(self, tmp_path: Path):
@@ -48,6 +49,30 @@ class TestCSVfiles:
         assert not file_path.exists()
         with pytest.raises(FileNotFoundError, match='There is not a csv file at this path'):
             storage.import_from_csv()
-        
+
+class TestJsonFiles:
+    
+    def test_export_to_json(self, tmp_path: Path, library: Library):
+        storage = DataStorage(dir_path= tmp_path)
+        result = storage.export_to_json(data= library.inventory)
+        file_path = tmp_path / 'books_inventory.json'
+        assert file_path.is_file()
+        assert result is True
+        assert 'the hobbit' in file_path.read_text(encoding='utf-8')
+
+    def test_export_to_json_when_data_not_a_list(self, tmp_path, library):
+        storage = DataStorage(dir_path= tmp_path)
+        with pytest.raises(TypeError, match='data should be a list'):
+            storage.export_to_json(data='not a list')
+
+    def test_export_to_json_when_data_is_not_a_list_of_books(self, tmp_path, library: Library):
+        storage = DataStorage(dir_path= tmp_path)
+        with pytest.raises(TypeError, match='must be Book objects'):
+            storage.export_to_json(data=[1,2,3])
+
+    def test_export_to_json_when_data_is_empty_list(self, tmp_path, library: Library):
+        storage = DataStorage(dir_path= tmp_path)
+        with pytest.raises(EmptyError, match='Can not export an empty book list'):
+            storage.export_to_json(data=[])
 
 

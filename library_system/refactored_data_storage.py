@@ -5,6 +5,7 @@ import json
 from models.book import Book
 from models.borrow_record import BorrowRecord
 from uuid import UUID
+from library_system.exceptions import EmptyError
 
 class DataStorage:
     def __init__(self, dir_path:Path | None = None):
@@ -50,6 +51,9 @@ class DataStorage:
         if not isinstance(data, list):
             raise TypeError(f"data should be a list. Got a {type(data).__name__}")
         
+        if not data:
+            raise EmptyError("Can not export an empty borrow records list.")
+        
         if not all(isinstance(record, BorrowRecord) for record in data):
             raise TypeError("all items in list must be BorrowRecord objects")
         
@@ -89,3 +93,22 @@ class DataStorage:
             result.append(BorrowRecord(**self._convert_record(record)))
         return result
     
+    def export_to_json(self, data: list[Book]) -> bool:
+        if not isinstance(data, list):
+            raise TypeError(f"data should be a list. Got a {type(data).__name__}")
+        
+        if not data:
+            raise EmptyError("Can not export an empty book list.")
+        
+        if not all(isinstance(book, Book) for book in data):
+            raise TypeError("all items in list must be Book objects")
+        
+        file_path = self.dir_path / 'books_inventory.json'
+        final_data : list[dict] = [book.model_dump(mode='json') for book in data]
+
+        try:
+            with open(file_path, mode='w', encoding='utf-8') as f:
+                json.dump(final_data, f, indent=2)
+                return True
+        except Exception as e:
+            raise RuntimeError(f'Something went wrong with json writing. {e}') from e
