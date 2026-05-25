@@ -1,9 +1,11 @@
 import pytest
 from models.library import Library
+from models.book import Book
 from models.borrow_record import BorrowRecord
 from library_system.refactored_data_storage import DataStorage
 from pathlib import Path
 from library_system.exceptions import EmptyError
+from pydantic import ValidationError
 
 class TestCSVfiles:
     def test_dir_path_creation(self, tmp_path: Path):
@@ -74,5 +76,53 @@ class TestJsonFiles:
         storage = DataStorage(dir_path= tmp_path)
         with pytest.raises(EmptyError, match='Can not export an empty book list'):
             storage.export_to_json(data=[])
+
+    def test_import_from_json(self, tmp_path: Path, multiple_books: list[Book]):
+        storage = DataStorage(dir_path=tmp_path)
+
+        storage.export_to_json(data=multiple_books)
+
+        data_from_json = storage.import_from_json()
+        file_path = tmp_path / "books_inventory.json"
+
+        assert file_path.is_file()
+        assert isinstance(data_from_json, list)
+        assert all(isinstance(book, Book) for book in data_from_json)
+        assert len(data_from_json) == 3
+        assert data_from_json[0].title == "the hobbit"
+
+
+    def test_import_from_json_when_file_does_not_exist(self, tmp_path: Path):
+        storage = DataStorage(dir_path=tmp_path)
+
+        file_path = tmp_path / "books_inventory.json"
+
+        assert not file_path.exists()
+
+        with pytest.raises(FileNotFoundError, match="There is not a json file at this path"):
+            storage.import_from_json()
+
+
+    def test_import_from_json_with_invalid_json_structure(self, tmp_path: Path):
+        storage = DataStorage(dir_path=tmp_path)
+
+        file_path = tmp_path / "books_inventory.json"
+        file_path.write_text('{"title": "not a list"}', encoding="utf-8")
+
+        with pytest.raises(TypeError, match="JSON data must be a list of books"):
+            storage.import_from_json()
+
+
+    def test_import_from_json_with_invalid_book_data(self, tmp_path: Path):
+        storage = DataStorage(dir_path=tmp_path)
+
+        file_path = tmp_path / "books_inventory.json"
+        file_path.write_text(
+            '[{"title": "ab", "author": "George Orwell", "status": "available"}]',
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValidationError):
+            storage.import_from_json()
 
 

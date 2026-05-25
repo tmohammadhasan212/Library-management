@@ -112,3 +112,21 @@ class DataStorage:
                 return True
         except Exception as e:
             raise RuntimeError(f'Something went wrong with json writing. {e}') from e
+        
+    def import_from_json(self) -> list[Book]:
+        file_path = self.dir_path / 'books_inventory.json'
+
+        if not file_path.is_file():
+            raise FileNotFoundError(f"There is not a json file at this path: {file_path}")
+        
+        try:
+            with open(file_path, encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            raise RuntimeError(f"Something went wrong with the json reading process. {e}") from e
+        
+        if not isinstance(data, list):
+            raise TypeError("JSON data must be a list of books.")
+
+        final_data : list[Book] = [Book(**book) for book in data]
+        return final_data
